@@ -1,6 +1,10 @@
-import config
 from server import Server
+import config
 
 
-server = Server(config.VK_API_TOKEN, config.VK_GROUP_ID, "finance-server")
+"""
+Точка входа программы
+"""
+
+server = Server(config.VK_API_TOKEN, config.VK_GROUP_ID, "server-finance")
 server.start()

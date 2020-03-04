@@ -9,11 +9,13 @@ from categories import Categories
 
 
 class Message(NamedTuple):
+    """Структура сообщения о новом расходе"""
     amount: int
     category_text: str
 
 
 class Expense(NamedTuple):
+    """Структура расхода"""
     id: Optional[int]
     user_id: Optional[int]
     amount: int
@@ -21,6 +23,13 @@ class Expense(NamedTuple):
 
 
 def add_expense(message: str, user_id: int) -> Expense:
+    """
+    Функция добавления расхода в БД
+    :param message: полученное сообщение
+    :param user_id: идентификатор пользователя в VK
+    :return: class Expense - структура расхода
+    """
+
     parsed_message = _parse_message(message)
     category = Categories().get_category(parsed_message.category_text)
 
@@ -36,12 +45,25 @@ def add_expense(message: str, user_id: int) -> Expense:
 
 
 def delete_expense(expense_id: int):
+    """
+    Функция удаления расхода
+    :param expense_id: идентификатор расхода
+    :return: None
+    """
     db.delete("expenses", row_id=expense_id)
 
 
 def get_today_statistics(user_id: int) -> str:
+    """
+    Функция получения статистики за день
+    :param user_id: идентификатор пользователя в VK
+    :return: сообщения о расходах за день
+    """
+
     cursor = db.get_cursor()
-    cursor.execute("SELECT SUM(amount)"
+
+    # Получения всех расходов за день
+    cursor.execute("SELECT SUM(amount) "
                    "FROM expenses "
                    f"WHERE DATE(created)=DATE('now', 'localtime') AND user_id = {user_id}")
     result = cursor.fetchone()
@@ -49,6 +71,7 @@ def get_today_statistics(user_id: int) -> str:
         return "Сегодня ещё нет расходов"
     all_today_expenses = result[0]
 
+    # Получение базовых расходов за день
     cursor.execute("SELECT SUM(amount) "
                    "FROM expenses "
                    "WHERE DATE(created)=DATE('now', 'localtime') "
@@ -57,16 +80,25 @@ def get_today_statistics(user_id: int) -> str:
     result = cursor.fetchone()
     base_today_expenses = result[0] if result[0] else 0
 
-    return ("Расходы сегодня:\n"
-            f"всего — {all_today_expenses} руб.\n"
-            f"базовые — {base_today_expenses} руб. из {get_daily_limit(user_id=user_id)} руб.\n\n"
-            "За текущий месяц: /месяц")
+    answer_message = ("Расходы сегодня:\n"
+                      f"всего — {all_today_expenses} руб.\n"
+                      f"базовые — {base_today_expenses} руб. из {get_daily_limit(user_id=user_id)} руб.\n\n"
+                      "За текущий месяц: /месяц")
+    return answer_message
 
 
 def get_month_statistics(user_id: int) -> str:
+    """
+    Функция получения статистики за месяц
+    :param user_id: идентификатор пользователя в VK
+    :return: сообщения о расходах за месяц
+    """
+
+    cursor = db.get_cursor()
     now = _get_now_datetime()
     first_day_of_month = f'{now.year:04d}-{now.month:02d}-01'
-    cursor = db.get_cursor()
+
+    # Получения всех расходов за месяц
     cursor.execute("SELECT SUM(amount) "
                    "FROM expenses "
                    f"WHERE DATE(created) >= '{first_day_of_month}' "
@@ -75,6 +107,8 @@ def get_month_statistics(user_id: int) -> str:
     if not result[0]:
         return "В этом месяце ещё нет расходов"
     all_today_expenses = result[0]
+
+    # Получение базовых расходов за месяц
     cursor.execute("SELECT SUM(amount) "
                    f"FROM expenses WHERE DATE(created) >= '{first_day_of_month}' "
                    "AND category_codename IN (SELECT codename FROM categories WHERE is_base_expense=true) "
@@ -82,13 +116,20 @@ def get_month_statistics(user_id: int) -> str:
     result = cursor.fetchone()
     base_today_expenses = result[0] if result[0] else 0
 
-    return (f"Расходы в текущем месяце:\n"
-            f"всего — {all_today_expenses} руб.\n"
-            f"базовые — {base_today_expenses} руб. из "
-            f"{now.day * get_daily_limit(user_id=user_id)} руб.")
+    answer_message = (f"Расходы в текущем месяце:\n"
+                      f"всего — {all_today_expenses} руб.\n"
+                      f"базовые — {base_today_expenses} руб. из "
+                      f"{now.day * get_daily_limit(user_id=user_id)} руб.")
+    return answer_message
 
 
 def last_expenses(user_id: int) -> List[Expense]:
+    """
+    Функция получения последних расходов пользователя (10 шт)
+    :param user_id: идентификатор пользователя в VK
+    :return: список расходов
+    """
+
     cursor = db.get_cursor()
     cursor.execute(
         "SELECT e.id, e.amount, c.name "
@@ -102,7 +143,24 @@ def last_expenses(user_id: int) -> List[Expense]:
     return list_expenses
 
 
+def get_daily_limit(user_id: int) -> int:
+    """Функция получения суточного лимита пользователя"""
+    return db.fetchall("users",
+                       ["daily_limit"],
+                       [{"id": str(user_id)}])[0]["daily_limit"]
+
+
+def change_daily_limit(new_daily_limit: int, user_id: int) -> bool:
+    """Функция изменения суточного лимита пользователя"""
+    return db.update("users",
+                     {"daily_limit": new_daily_limit},
+                     {"id": user_id})
+
+
 def _parse_message(message: str) -> Message:
+    """
+    Функция разбора сообщения
+    Позволяет получить из сообщения сумму расхода и псевдоним категории"""
     template_add_expense = r"^/(\d+[\.\d+|,\d+]*)р? (\w+)"
     regexp_result = re.findall(template_add_expense, message)[0]
 
@@ -113,18 +171,12 @@ def _parse_message(message: str) -> Message:
 
 
 def _get_now_formatted() -> str:
+    """Возвращает текущую дату строкой"""
     return _get_now_datetime().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _get_now_datetime() -> datetime.datetime:
+    """Возвращает datetime с учётом установленной временной зоны (Екб)"""
     tz = pytz.timezone("Asia/Yekaterinburg")
     now = datetime.datetime.now(tz)
     return now
-
-
-def get_daily_limit(user_id: int) -> int:
-    return db.fetchall("users", ["daily_limit"], [{"id": str(user_id)}])[0]["daily_limit"]
-
-
-def change_daily_limit(new_daily_limit: int, user_id: int) -> bool:
-    return db.update("users", {"daily_limit": new_daily_limit}, {"id": user_id})

@@ -5,6 +5,7 @@ import db
 
 
 class Category(NamedTuple):
+    """Структура категории"""
     codename: str
     name: str
     is_base_expense: bool
@@ -12,16 +13,21 @@ class Category(NamedTuple):
 
 
 class Categories:
+    """Класс обработчика списка категорий"""
+
     def __init__(self):
         self._categories = self._load_categories()
 
     def _load_categories(self) -> List[Category]:
+        """Возвращает справочник категорий из БД"""
         categories = db.fetchall("categories", "codename name is_base_expense aliases".split())
         categories = self._fill_aliases(categories)
         return categories
 
     @staticmethod
-    def _fill_aliases(categories: List) -> List[Category]:
+    def _fill_aliases(categories: List[Dict]) -> List[Category]:
+        """Заполняет алиасы (псевдонимы)по каждой категории"""
+
         categories_result = []
         for index, category in enumerate(categories):
             aliases = category["aliases"].split(",")
@@ -39,9 +45,11 @@ class Categories:
         return categories_result
 
     def get_all_categories(self) -> List:
+        """Возвращает справочник категорий"""
         return self._categories
 
     def get_category(self, category_name: str) -> Category:
+        """Возвращает категорию по одному из её алиасов"""
         desired_category = None
         other_category = None
 

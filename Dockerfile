@@ -8,14 +8,7 @@ ENV VK_GROUP_ID="192253298"
 ENV TZ=Asia/Yekaterinburg
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-RUN pip install -U pip vk_api pytz 
-# RUN apt-get update 
-# RUN apt-get install sqlite3
-
-# RUN apt-get -y update
-# RUN apt-get -y upgrade
-# RUN apt-get install -y sqlite3 libsqlite3-dev
-
+RUN pip install -U pip vk_api pytz
 
 COPY *.py ./
 COPY createdb.sql ./
