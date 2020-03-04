@@ -1,0 +1,8 @@
+import os
+
+# VK_API_TOKEN = "3cfd1b9e48f43434dac264d3f89619a67b74815f10981787e0e2e71102bc9898c27e9cdc2da7009b42c24"
+VK_API_TOKEN = os.getenv("VK_API_TOKEN")
+# VK_GROUP_ID = 192253298
+VK_GROUP_ID = os.getenv("VK_GROUP_ID")
+
+DB_NAME = "finance.db"
